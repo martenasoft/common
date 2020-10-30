@@ -3,14 +3,18 @@
 namespace MartenaSoft\Common\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use MartenaSoft\Common\Entity\NestedSetEntityInterface;
+use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
 
 abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepository
-    implements NestedSetServiceRepositoryInterface
+    implements NestedSetServiceRepositoryInterface, SafeRepositoryDeleteInterface
 {
-    protected $alias = 'ns';
+    use SafeDeleteTrait;
+
+    protected string $alias = 'ns';
 
     public function getMaxTree(): int
     {
@@ -43,12 +47,25 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         $queryBuilder->andWhere("{$this->alias}.tree=:tree")
             ->setParameter('tree', $nestedSetEntity->getTree());
 
+
+        if ($nestedSetEntity instanceof SafeDeleteEntityInterface) {
+            if ($this->getHowToShowSafeDeletedItems()) {
+
+            }
+        }
+
         return $queryBuilder;
     }
 
     protected function getItemQueryBuilder(): QueryBuilder
     {
-        return $this->createQueryBuilder($this->alias);
+        $queryBuilder = $this->createQueryBuilder($this->alias);
+        return $queryBuilder;
+    }
+
+    public function getTableName(): string
+    {
+        return $this->getClassMetadata()->getTableName();
     }
 
     public function create(
@@ -69,7 +86,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
                 $parentId = $parent->getId();
                 $tree = $parent->getTree();
 
-                $tableName = $this->getClassMetadata()->getTableName();
+                $tableName = $this->getTableName();
                 $sql = "UPDATE $tableName {$this->alias} 
                             SET {$this->alias}.rgt={$this->alias}.rgt + 2 
                          WHERE {$this->alias}.tree=:tree AND {$this->alias}.rgt>=:rgt;";
@@ -112,18 +129,41 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         return $nestedSetEntity;
     }
 
-    public function safeDelete(NestedSetEntityInterface $nestedSetEntity)
-    {
-        // TODO: Implement safeDelete() method.
+    public function delete(
+        NestedSetEntityInterface $nestedSetEntity,
+        ?string $tableName = null,
+        ?Connection $connection = null
+    ): void {
+        if (empty($tableName)) {
+            $tableName = $this->getTableName();
+        }
+
+        if (empty($connection)) {
+            $connection = $this->getEntityManager()->getConnection();
+        }
+
+        $sql = "DELETE FROM `{$tableName}` 
+                    WHERE lft >= " . $nestedSetEntity->getLft() . " 
+                        AND rgt <= " . $nestedSetEntity->getRgt() . " 
+                        AND tree = " . $nestedSetEntity->getTree().";";
+
+        $sql .= "UPDATE `{$tableName}` SET
+                    lft = IF (lft > " . $nestedSetEntity->getLft() . ",
+                                lft- ((((" . $nestedSetEntity->getRgt() . " - " . $nestedSetEntity->getLft() . " - 1) / 2) + 1)*2), lft),
+                    rgt = rgt- ((((" . $nestedSetEntity->getRgt() . " - " . $nestedSetEntity->getLft() . " - 1) / 2) + 1)*2)
+
+                 WHERE rgt > " . $nestedSetEntity->getRgt() . " AND tree = " . $nestedSetEntity->getTree().";";
+
+        $connection->executeQuery($sql);
     }
 
-    public function delete(NestedSetEntityInterface $nestedSetEntity)
+    public function move(NestedSetEntityInterface $node, ?NestedSetEntityInterface $parent = null): void
     {
-        // TODO: Implement delete() method.
-    }
-
-    public function move(NestedSetEntityInterface $nestedSetEntity, ?NestedSetEntityInterface $parent = null)
-    {
-        // TODO: Implement move() method.
+        try {
+            (new NestedSetsMoveNode($this->getEntityManager(), $this))
+                ->move($node, $parent);
+        } catch (\Throwable $exception) {
+            throw $exception;
+        }
     }
 }

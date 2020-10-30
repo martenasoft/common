@@ -2,13 +2,23 @@
 
 namespace MartenaSoft\Common\Repository;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
 use MartenaSoft\Common\Entity\NestedSetEntityInterface;
 
 interface NestedSetServiceRepositoryInterface
 {
     public function create(NestedSetEntityInterface $nestedSetEntity, ?NestedSetEntityInterface $parent = null);
-    public function safeDelete(NestedSetEntityInterface $nestedSetEntity);
-    public function delete(NestedSetEntityInterface $nestedSetEntity);
-    public function move(NestedSetEntityInterface $nestedSetEntity, ?NestedSetEntityInterface $parent = null);
+
+    public function delete(
+        NestedSetEntityInterface $nestedSetEntity,
+        ?string $tableName = null,
+        ?Connection $connection = null
+    ): void;
+
+    public function move(NestedSetEntityInterface $node, ?NestedSetEntityInterface $parent = null): void;
+
+    public function getTableName(): string;
+
+    public function getMaxTree(): int;
 }
