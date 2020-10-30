@@ -9,6 +9,9 @@ interface NestedSetEntityInterface
     public function getLft(): ?int;
     public function setLft(?int $lft): ?self;
 
+    public function getName(): ?string;
+    public function setName(?string $name): ?self;
+
     public function getRgt(): ?int;
     public function setRgt(?int $lft): ?self;
 
@@ -19,4 +22,5 @@ interface NestedSetEntityInterface
     public function setLvl(?int $lft): ?self;
 
     public function getParentId(): ?int;
+    public function setParentId(?int $parentId): ?self;
 }
