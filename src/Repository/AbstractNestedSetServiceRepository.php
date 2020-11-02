@@ -5,7 +5,6 @@ namespace MartenaSoft\Common\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\QueryBuilder;
-use Doctrine\Persistence\ManagerRegistry;
 use MartenaSoft\Common\Entity\NestedSetEntityInterface;
 use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
 
@@ -47,13 +46,6 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         $queryBuilder->andWhere("{$this->alias}.tree=:tree")
             ->setParameter('tree', $nestedSetEntity->getTree());
 
-
-        if ($nestedSetEntity instanceof SafeDeleteEntityInterface) {
-            if ($this->getHowToShowSafeDeletedItems()) {
-
-            }
-        }
-
         return $queryBuilder;
     }
 
@@ -80,6 +72,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
 
         try {
             if ($parent) {
+
                 $lft = $parent->getLft();
                 $rgt = $parent->getRgt();
                 $lvl = $parent->getLvl();
@@ -89,11 +82,15 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
                 $tableName = $this->getTableName();
                 $sql = "UPDATE $tableName {$this->alias} 
                             SET {$this->alias}.rgt={$this->alias}.rgt + 2 
-                         WHERE {$this->alias}.tree=:tree AND {$this->alias}.rgt>=:rgt;";
+                         WHERE {$this->alias}.tree=:tree AND {$this->alias}.rgt>=:lft;";
 
                 $sql .= "UPDATE $tableName {$this->alias} 
                             SET {$this->alias}.lft={$this->alias}.lft + 2 
                          WHERE {$this->alias}.tree=:tree AND {$this->alias}.lft>:lft;";
+
+                $lft = $rgt;
+                $rgt++;
+                $lvl++;
 
                 $params = [
                     'tree' => $tree,
@@ -102,9 +99,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
                 ];
 
                 $this->getEntityManager()->getConnection()->executeQuery($sql, $params);
-                $lft = $rgt;
-                $rgt++;
-                $lvl++;
+
             } else {
                 $tree =  $this->getMaxTree();
                 $lft = $lvl = 1;
@@ -121,12 +116,36 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
 
             $this->getEntityManager()->persist($nestedSetEntity);
             $this->getEntityManager()->flush();
+
             $this->getEntityManager()->commit();
+
+
         } catch (\Throwable $e) {
             $this->getEntityManager()->rollback();
             throw $e;
         }
+
         return $nestedSetEntity;
+    }
+
+    public function up(NestedSetEntityInterface $node): void
+    {
+        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_BEFORE);
+    }
+
+    public function down(NestedSetEntityInterface $node): void
+    {
+        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_AFTER);
+    }
+
+    public function left(NestedSetEntityInterface $node): void
+    {
+        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_LEFT);
+    }
+
+    public function right(NestedSetEntityInterface $node): void
+    {
+        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_RIGHT);
     }
 
     public function delete(
@@ -134,25 +153,15 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         ?string $tableName = null,
         ?Connection $connection = null
     ): void {
-        if (empty($tableName)) {
-            $tableName = $this->getTableName();
-        }
-
         if (empty($connection)) {
             $connection = $this->getEntityManager()->getConnection();
         }
 
-        $sql = "DELETE FROM `{$tableName}` 
-                    WHERE lft >= " . $nestedSetEntity->getLft() . " 
-                        AND rgt <= " . $nestedSetEntity->getRgt() . " 
-                        AND tree = " . $nestedSetEntity->getTree().";";
+        if (empty($tableName)) {
+            $tableName = $this->getTableName();
+        }
 
-        $sql .= "UPDATE `{$tableName}` SET
-                    lft = IF (lft > " . $nestedSetEntity->getLft() . ",
-                                lft- ((((" . $nestedSetEntity->getRgt() . " - " . $nestedSetEntity->getLft() . " - 1) / 2) + 1)*2), lft),
-                    rgt = rgt- ((((" . $nestedSetEntity->getRgt() . " - " . $nestedSetEntity->getLft() . " - 1) / 2) + 1)*2)
-
-                 WHERE rgt > " . $nestedSetEntity->getRgt() . " AND tree = " . $nestedSetEntity->getTree().";";
+        $sql = $this->getDeleteQuery($nestedSetEntity, $tableName);
 
         $connection->executeQuery($sql);
     }
@@ -165,5 +174,88 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         } catch (\Throwable $exception) {
             throw $exception;
         }
+    }
+
+    public function getDeleteQuery (
+        NestedSetEntityInterface $nestedSetEntity,
+        string $tableName
+    ): string {
+
+        $sql = "DELETE FROM `{$tableName}` 
+                    WHERE lft >= {$nestedSetEntity->getLft()} 
+                        AND rgt <= {$nestedSetEntity->getRgt()} 
+                        AND tree = {$nestedSetEntity->getTree()};";
+
+        $sql .= "UPDATE `{$tableName}` SET
+                    lft = IF (lft > {$nestedSetEntity->getLft()},
+                    lft - (((( {$nestedSetEntity->getRgt()} - {$nestedSetEntity->getLft()} - 1) / 2) + 1)*2), lft),
+                    rgt = rgt- (((( {$nestedSetEntity->getRgt()} - {$nestedSetEntity->getLft()} - 1) / 2) + 1)*2)
+
+                 WHERE rgt > {$nestedSetEntity->getRgt()} AND tree = {$nestedSetEntity->getTree()};";
+
+        return $sql;
+    }
+
+    private function getNearNode(NestedSetEntityInterface $node, int $direction): ?NestedSetEntityInterface
+    {
+        $queryBuilder = $this->getItemQueryBuilder();
+
+        switch ($direction)
+        {
+            case self::NODE_AFTER;
+                $queryBuilder->andWhere("{$this->alias}.lft>:lft")->setParameter("lft", $node->getLft());
+                $queryBuilder->andWhere("{$this->alias}.rgt<:rgt")->setParameter("rgt", $node->getRgt());
+                $queryBuilder->orderBy("{$this->alias}.lft", "ASC");
+                break;
+
+            case self::NODE_RIGHT;
+                $queryBuilder->andWhere("{$this->alias}.lft=:lft+2")->setParameter("lft", $node->getLft());
+                $queryBuilder->andWhere("{$this->alias}.rgt=:rgt+2")->setParameter("rgt", $node->getRgt());
+                break;
+
+            case self::NODE_LEFT;
+                $queryBuilder->andWhere("{$this->alias}.lft=:lft-2")->setParameter("lft", $node->getLft());
+                $queryBuilder->andWhere("{$this->alias}.rgt=:rgt-2")->setParameter("rgt", $node->getRgt());
+                break;
+
+            case self::NODE_BEFORE:
+            default:
+                $queryBuilder->andWhere("{$this->alias}.lft<:lft")->setParameter("lft", $node->getLft());
+                $queryBuilder->andWhere("{$this->alias}.rgt>:rgt")->setParameter("rgt", $node->getRgt());
+                $queryBuilder->orderBy("{$this->alias}.lft", "DESC");
+        }
+
+        $queryBuilder->andWhere("{$this->alias}.tree=:tree")->setParameter("tree", $node->getTree());
+        $queryBuilder->setFirstResult(0)->setMaxResults(1);
+        $return = $queryBuilder->getQuery()->getOneOrNullResult();
+        $this->getEntityManager()->refresh($return);
+        return $return;
+    }
+
+    private function changeNodeKeys(NestedSetEntityInterface $node, int $direction): void
+    {
+        $nearNode = $this->getNearNode($node, $direction);
+
+        if (empty($nearNode)) {
+            return;
+        }
+
+        $lft = $node->getLft();
+        $rgt = $node->getRgt();
+        $lvl = $node->getLvl();
+        $parentId = $node->getParentId();
+
+        $node->setLft($nearNode->getLft())
+            ->setRgt($nearNode->getRgt())
+            ->setParentId($nearNode->getParentId())
+            ->setLvl($nearNode->getLvl());
+
+        $nearNode->setLft($lft)
+            ->setRgt($rgt)
+            ->setParentId($parentId)
+            ->setLvl($lvl);
+
+        $this->getEntityManager()->flush($node);
+        $this->getEntityManager()->flush($nearNode);
     }
 }

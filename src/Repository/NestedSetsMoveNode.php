@@ -4,7 +4,8 @@ namespace MartenaSoft\Common\Repository;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
-use MartenaSoft\Common\Repository\NestedSetServiceRepositoryInterface;
+use MartenaSoft\Common\Entity\NestedSetEntityInterface;
+
 
 class NestedSetsMoveNode
 {
@@ -20,16 +21,7 @@ class NestedSetsMoveNode
     ) {
         $this->entityManager = $entityManager;
         $this->nestedSetServiceRepository = $nestedSetServiceRepository;
-    }
-
-    public function getMovedTemporaryTableName(): string
-    {
-        return $this->nestedSetServiceRepository->getTableName() . '_' . slef::MOVE_TMP_TABLE;
-    }
-
-    public function getMovedTemporaryTableNameForAllNodes(): string
-    {
-        return $this->nestedSetServiceRepository->getTableName() . '_' . slef::MOVE_TMP_TABLE_ALL_NODES;
+        $this->connection = $this->entityManager->getConnection();
     }
 
     public function move(NestedSetEntityInterface $node, ?NestedSetEntityInterface $parent): void
@@ -45,8 +37,9 @@ class NestedSetsMoveNode
                 `id` int unsigned NOT NULL AUTO_INCREMENT,                
                 `lft` int unsigned DEFAULT NULL,
                 `rgt` int unsigned DEFAULT NULL,          
+                `tree` int unsigned DEFAULT NULL,          
                 `parent_id` int unsigned DEFAULT NULL,
-                PRIMARY KEY (`id`))";
+                PRIMARY KEY (`id`)); ";
 
         $treeIdArray = [
             $node->getTree()
@@ -56,40 +49,43 @@ class NestedSetsMoveNode
             $treeIdArray[] = $parent->getTree();
         }
 
-        $sql .=  "CREATE TABLE `{$tmpAllNodesTableName}` 
+        $sql .=  " CREATE TABLE `{$tmpAllNodesTableName}` 
                 SELECT `ns`.`id`, 
                        `ns`.`parent_id`, 
                        `ns`.`lft`, 
                        `ns`.`rgt`, 
                        `ns`.`tree`, 
-                       `ns`.`lvl` 
+                       `ns`.`lvl`,
+                       0 i 
                     FROM `{$nsTableName}` `ns` 
-                WHERE `ns`.`tree` IN (" . implode(',', $treeIdArray) . ")";
+                WHERE `ns`.`tree` IN (" . implode(',', $treeIdArray) . ");";
 
         $connection->executeQuery($sql);
+
         $connection->beginTransaction();
         $throwException = null;
 
         try {
             $sql = "INSERT INTO `{$moveTmpTable}` 
-                    SELECT NULL, `ns`.`id`, `ns`.`lft`, `ns`.`rgt`, `ns`.`parent_id` FROM `{$nsTableName}` `ns` 
-                WHERE `ns`.`lft` >= " . $node->getLft()
-                . ' AND `uf`.`rgt` <= ' . $node->getRgt()
-                . ' AND `uf`.`tree` = ' . $node->getTree()
-                . ' ORDER BY `uf`.`lft` ASC';
+                    SELECT `ns`.`id`, `ns`.`lft`, `ns`.`rgt`, `ns`.`tree`, `ns`.`parent_id` FROM `{$nsTableName}` `ns` 
+                       WHERE `ns`.`lft` >= {$node->getLft()}
+                          AND `ns`.`rgt` <= {$node->getRgt()}
+                          AND `ns`.`tree` = {$node->getTree()}
+                      ORDER BY `ns`.`lft` ";
 
-            $connection->executeQuery($sql);
-            $insertedLength = (int)$connection
-                    ->executeQuery("SELECT COUNT(*) FROM `{$moveTmpTable}`")
-                    ->fetchColumn(0) * 2;
+            $insertedLength = (int)$connection->exec($sql);
 
             if ($insertedLength == 0) {
                 throw new \Exception('Inserted move users length is 0', 4);
             }
 
-            $this
-                ->nestedSetServiceRepository
-                ->delete($node, $tmpAllNodesTableName, $connection);
+            $insertedLength *= 2;
+
+            $sql = $this
+                    ->nestedSetServiceRepository
+                    ->getDeleteQuery($node, $tmpAllNodesTableName);
+
+            $connection->executeQuery($sql);
 
             if ($parent !== null) {
                 $parentNew = $connection
@@ -100,73 +96,75 @@ class NestedSetsMoveNode
                         ]);
 
                 if (empty($parentNew)) {
-                    throw new \Exception('Can`t find upliner ' . $parent->getId());
+                    throw new \Exception('Can`t find parent node ' . $parent->getId());
                 }
 
                 $sql = "UPDATE `{$tmpAllNodesTableName}` SET
                             lft = (
                                 CASE
-                                   WHEN lft > " . $parentNew['lft'] .
-                    " AND rgt < " . $parentNew['rgt'] .
-                    " AND tree = " . $parentNew['tree'] .
-                    " THEN lft + " . $insertedLength . "
-                                        
-                                        
-                                   WHEN lft > " . $parentNew['lft'] .
-                    " AND rgt > " . $parentNew['rgt'] .
-                    " AND tree = " . $parentNew['tree'] .
-                    " THEN lft + " . $insertedLength . "
-                                   ELSE lft END
+                                   WHEN lft > {$parentNew['lft']}
+                                        AND rgt < {$parentNew['rgt']}
+                                        AND tree = {$parentNew['tree']}
+                                THEN lft + {$insertedLength}
+                                
+                                WHEN lft > {$parentNew['lft']}
+                                     AND rgt > {$parentNew['rgt']}
+                                     AND tree = {$parentNew['tree']}
+                                THEN lft + {$insertedLength}
+                                ELSE lft END
                             ),
 
                             rgt = (
                                 CASE
-                                    WHEN lft > " . $parentNew['lft'] .
-                    " AND rgt < " . $parentNew['rgt'] .
-                    " AND tree = " . $parentNew['tree'] . "
-                                    THEN rgt+ " . $insertedLength . "
+                                    WHEN lft > {$parentNew['lft']}
+                                         AND rgt < {$parentNew['rgt']}
+                                         AND tree = {$parentNew['tree']}
+                                    THEN rgt + {$insertedLength}
                                     
-                                    WHEN (lft > " . $parentNew['lft'] .
-                    " AND rgt > " . $parentNew['rgt'] .
-                    " AND tree = " . $parentNew['tree'] .
-                    ") OR (lft <= " . $parentNew['lft'] .
-                    "      AND rgt >= " . $parentNew['rgt'] .
-                    "      AND tree = " . $parentNew['tree'] .
-                    ") 
-                                    THEN rgt + " . $insertedLength . "
-                                ELSE rgt END
-                            )
-                  WHERE tree = " . $parent->getTree();
-
-                $connection->executeQuery($sql);
-                $sql = "INSERT INTO `{$tmpAllNodesTableName}` 
-                        SELECT user_id, 
-                                IF (id = 1 OR upliner_id IS NULL, " . $parentNew['id'] . ", parent_id),
-                                lft - (" . $node->getLft() . " + 1 + " . $parentNew['lft'] . ") , 
-                                rgt - (" . $node->getLft() . " + 1 + " . $parentNew['lft'] . ") ," .
-                    $parentNew['tree'] . ", 
-                                ( 
-                                    SELECT COUNT(*) FROM {$moveTmpTable} t1 WHERE t1.lft < t2.lft AND t1.rgt>t2.rgt  
-                                    + " . $parent->getLvl() . " 
-                                    + 1
+                                    WHEN (lft > {$parentNew['lft']}
+                                         AND rgt > {$parentNew['rgt']}
+                                         AND tree = {$parentNew['tree']}
+                                         ) OR (lft <= {$parentNew['lft']}
+                                         AND rgt >= {$parentNew['rgt']}
+                                         AND tree = {$parentNew['tree']}
+                                         ) 
+                                    THEN rgt + {$insertedLength}
+                                    ELSE rgt END
                                 )
-                                FROM {$moveTmpTable} t2";
+                        WHERE tree = {$parent->getTree()};";
+                $sql .= "SET @s_ := 0;";
+                $sql .= "INSERT INTO `{$tmpAllNodesTableName}` 
+                        SELECT  id,
+                                IF (@s_ = 0, {$parentNew['id']}, parent_id),
+                                lft - {$node->getLft()} + 1 + {$parentNew['lft']}, 
+                                rgt - {$node->getLft()} + 1 + {$parentNew['lft']},
+                                {$parentNew['tree']},
+                                 
+                                ( 
+                                    (SELECT COUNT(*) FROM {$moveTmpTable} t1 WHERE t1.lft < t2.lft AND t1.rgt>t2.rgt)  
+                                    + {$parent->getLvl()} + 1
+                                ),
+                                @s_ := @s_ + 1
+                                FROM {$moveTmpTable} t2;";
 
-                $connection->executeQuery($sql);
+               $connection->executeQuery($sql);
             } else {
                 $maxTree = $this->nestedSetServiceRepository->getMaxTree();
-                $sql = "INSERT INTO `{$tmpAllNodesTableName}` 
-                        SELECT IF (id = 1, NULL, parent_id),
-                               lft - " . $node->getLft() . " + 1, 
-                               rgt - " . $node->getLft() . " + 1,
+                $sql = "@s_ := 0;";
+                $sql .= "INSERT INTO `{$tmpAllNodesTableName}` 
+                        SELECT IF (@s_ = 0, 0, parent_id),
+                               @s_ := 1,
+                               lft - {$node->getLft()} + 1, 
+                               rgt - {$node->getLft()} + 1,
                                " . ($maxTree + 1) . ",
                                (
-                                    SELECT COUNT(*) FROM user_front_moved_users_ns_tmp t1 
-                                        WHERE t1.lft < t2.lft AND t1.rgt>t2.rgt  + 1
+                                    (SELECT COUNT(*) FROM user_front_moved_users_ns_tmp t1 
+                                        WHERE t1.lft < t2.lft AND t1.rgt>t2.rgt)  + 1
                                )         
                         FROM {$moveTmpTable} t2";
                 $connection->executeQuery($sql);
             }
+
 
             $this->migrateFromTemporaryTable();
             $connection->commit();
@@ -182,13 +180,23 @@ class NestedSetsMoveNode
         }
     }
 
+    public function getMovedTemporaryTableName(): string
+    {
+        return $this->nestedSetServiceRepository->getTableName() . '_' . self::MOVE_TMP_TABLE;
+    }
+
+    public function getMovedTemporaryTableNameForAllNodes(): string
+    {
+        return $this->nestedSetServiceRepository->getTableName() . '_' . self::MOVE_TMP_TABLE_ALL_NODES;
+    }
+
     private function migrateFromTemporaryTable(): void
     {
         $connection = $this->getConnection();
-        $tableName = $this->getMovedTemporaryTableName();
         $allNodesTmpTableName = $this->getMovedTemporaryTableNameForAllNodes();
-        $sql = "UPDATE `{$tableName}` ns 
-                    INNER JOIN $allNodesTmpTableName nst 
+        $nsTableName = $this->nestedSetServiceRepository->getTableName();
+        $sql = "UPDATE `{$nsTableName}` ns 
+                    INNER JOIN {$allNodesTmpTableName} nst 
                     ON ns.id = nst.id 
                 SET ns.lft = nst.lft, 
                     ns.rgt = nst.rgt, 
@@ -196,20 +204,17 @@ class NestedSetsMoveNode
                     ns.lvl = nst.lvl, 
                     ns.parent_id = nst.parent_id";
 
-        try {
-            $connection->executeQuery($sql);
-        } catch (\Exception $e) {
-            throw new \Exception($e->getMessage(), 30);
-        }
+        $connection->executeQuery($sql);
     }
 
     private function deleteTemplateTables(): void
     {
         $moveTmpTable = $this->getMovedTemporaryTableName();
-        $nsTableName = $this->nestedSetServiceRepository->getTableName();
+        $tmpAllNodesTableName = $this->getMovedTemporaryTableNameForAllNodes();
+
         $connection = $this->getConnection();
-        $sql = "DROP TABLE IF EXISTS `{$nsTableName}`;";
-        $sql .= "DROP TABLE IF EXISTS `{$moveTmpTable}`;";
+        $sql = "DROP TABLE IF EXISTS `{$moveTmpTable}`;";
+        $sql .= "DROP TABLE IF EXISTS `{$tmpAllNodesTableName}`;";
         $connection->executeQuery($sql);
     }
 
@@ -217,4 +222,5 @@ class NestedSetsMoveNode
     {
         return $this->connection;
     }
+
 }
