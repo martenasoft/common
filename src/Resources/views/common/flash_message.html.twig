@@ -1,0 +1,12 @@
+
+{% for message in app.flashes(constant('MartenaSoft\\Common\\Library\\CommonValues::ADD_FLASH_SUCCESS_TYPE')) %}
+    <div class="alert alert-success">
+        {{ message }}
+    </div>
+{% endfor %}
+
+{% for message in app.flashes(constant('MartenaSoft\\Common\\Library\\CommonValues::ADD_FLASH_ERROR_TYPE')) %}
+    <div class="alert alert-danger">
+        {{ message }}
+    </div>
+{% endfor %}
