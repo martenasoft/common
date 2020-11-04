@@ -7,6 +7,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\QueryBuilder;
 use MartenaSoft\Common\Entity\NestedSetEntityInterface;
 use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
+use MartenaSoft\Common\Exception\ElementNotFoundException;
 
 abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepository
     implements NestedSetServiceRepositoryInterface, SafeRepositoryDeleteInterface
@@ -130,22 +131,24 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
 
     public function up(NestedSetEntityInterface $node): void
     {
-        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_BEFORE);
+        try {
+            $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_BEFORE);
+        } catch (ElementNotFoundException $exception) {
+            $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_LAST);
+        } catch (\Throwable $exception) {
+            throw $exception;
+        }
     }
 
     public function down(NestedSetEntityInterface $node): void
     {
-        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_AFTER);
-    }
-
-    public function left(NestedSetEntityInterface $node): void
-    {
-        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_LEFT);
-    }
-
-    public function right(NestedSetEntityInterface $node): void
-    {
-        $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_RIGHT);
+        try {
+            $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_AFTER);
+        } catch (ElementNotFoundException $exception) {
+            $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_FIRST);
+        } catch (\Throwable $exception) {
+            throw $exception;
+        }
     }
 
     public function delete(
@@ -171,7 +174,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         try {
             (new NestedSetsMoveNode($this->getEntityManager(), $this))
                 ->move($node, $parent);
-        } catch (\Throwable $exception) {
+        } catch (ElementNotFoundException | \Throwable $exception) {
             throw $exception;
         }
     }
@@ -204,58 +207,63 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         {
             case self::NODE_AFTER;
                 $queryBuilder->andWhere("{$this->alias}.lft>:lft")->setParameter("lft", $node->getLft());
-                $queryBuilder->andWhere("{$this->alias}.rgt<:rgt")->setParameter("rgt", $node->getRgt());
                 $queryBuilder->orderBy("{$this->alias}.lft", "ASC");
                 break;
 
-            case self::NODE_RIGHT;
-                $queryBuilder->andWhere("{$this->alias}.lft=:lft+2")->setParameter("lft", $node->getLft());
-                $queryBuilder->andWhere("{$this->alias}.rgt=:rgt+2")->setParameter("rgt", $node->getRgt());
+            case self::NODE_FIRST;
+                $queryBuilder->andWhere("{$this->alias}.lft=:lft")->setParameter("lft", 1);
                 break;
 
-            case self::NODE_LEFT;
-                $queryBuilder->andWhere("{$this->alias}.lft=:lft-2")->setParameter("lft", $node->getLft());
-                $queryBuilder->andWhere("{$this->alias}.rgt=:rgt-2")->setParameter("rgt", $node->getRgt());
+            case self::NODE_LAST;
+                $queryBuilder->orderBy("{$this->alias}.lvl", "DESC");
                 break;
 
             case self::NODE_BEFORE:
-            default:
-                $queryBuilder->andWhere("{$this->alias}.lft<:lft")->setParameter("lft", $node->getLft());
                 $queryBuilder->andWhere("{$this->alias}.rgt>:rgt")->setParameter("rgt", $node->getRgt());
                 $queryBuilder->orderBy("{$this->alias}.lft", "DESC");
+                break;
         }
 
         $queryBuilder->andWhere("{$this->alias}.tree=:tree")->setParameter("tree", $node->getTree());
         $queryBuilder->setFirstResult(0)->setMaxResults(1);
         $return = $queryBuilder->getQuery()->getOneOrNullResult();
+
+        if (empty($return)) {
+            throw new ElementNotFoundException();
+        }
+
         $this->getEntityManager()->refresh($return);
         return $return;
     }
 
     private function changeNodeKeys(NestedSetEntityInterface $node, int $direction): void
     {
-        $nearNode = $this->getNearNode($node, $direction);
+        try {
+            $nearNode = $this->getNearNode($node, $direction);
 
-        if (empty($nearNode)) {
-            return;
+            if (empty($nearNode)) {
+                throw new ElementNotFoundException();
+            }
+
+            $lft = $node->getLft();
+            $rgt = $node->getRgt();
+            $lvl = $node->getLvl();
+            $parentId = $node->getParentId();
+
+            $node->setLft($nearNode->getLft())
+                ->setRgt($nearNode->getRgt())
+                ->setParentId($nearNode->getParentId())
+                ->setLvl($nearNode->getLvl());
+
+            $nearNode->setLft($lft)
+                ->setRgt($rgt)
+                ->setParentId($parentId)
+                ->setLvl($lvl);
+
+            $this->getEntityManager()->flush($node);
+            $this->getEntityManager()->flush($nearNode);
+        } catch (\Throwable $exception) {
+            throw $exception;
         }
-
-        $lft = $node->getLft();
-        $rgt = $node->getRgt();
-        $lvl = $node->getLvl();
-        $parentId = $node->getParentId();
-
-        $node->setLft($nearNode->getLft())
-            ->setRgt($nearNode->getRgt())
-            ->setParentId($nearNode->getParentId())
-            ->setLvl($nearNode->getLvl());
-
-        $nearNode->setLft($lft)
-            ->setRgt($rgt)
-            ->setParentId($parentId)
-            ->setLvl($lvl);
-
-        $this->getEntityManager()->flush($node);
-        $this->getEntityManager()->flush($nearNode);
     }
 }

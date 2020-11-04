@@ -10,8 +10,8 @@ interface NestedSetServiceRepositoryInterface
 {
     public const NODE_BEFORE = 1;
     public const NODE_AFTER = 2;
-    public const NODE_LEFT = 3;
-    public const NODE_RIGHT = 4;
+    public const NODE_FIRST = 3;
+    public const NODE_LAST = 4;
 
     public function create(NestedSetEntityInterface $nestedSetEntity, ?NestedSetEntityInterface $parent = null);
 
@@ -35,8 +35,4 @@ interface NestedSetServiceRepositoryInterface
     public function up(NestedSetEntityInterface $node): void;
 
     public function down(NestedSetEntityInterface $node): void;
-
-    public function left(NestedSetEntityInterface $node): void;
-
-    public function right(NestedSetEntityInterface $node): void;
 }

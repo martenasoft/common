@@ -1,0 +1,8 @@
+{% if cancel_url is defined %}
+    <a href="{{ cancel_url }}" class="btn btn-dark">Cancel</a>
+{% endif %}
+
+{% if delete_url is defined %}
+    <a class="btn btn-danger" href="{{ delete_url }}"
+       onclick="return confirm('Delete this item?');">Delete</a>
+{% endif %}
