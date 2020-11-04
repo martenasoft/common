@@ -5,9 +5,9 @@ namespace MartenaSoft\Common\Repository;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\QueryBuilder;
-use MartenaSoft\Common\Entity\NestedSetEntityInterface;
 use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
 use MartenaSoft\Common\Exception\ElementNotFoundException;
+use MartenaSoft\NestedSets\Entity\NodeInterface;
 
 abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepository
     implements NestedSetServiceRepositoryInterface, SafeRepositoryDeleteInterface
@@ -26,7 +26,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         return ++$ret;
     }
 
-    public function get(string $name): ?NestedSetEntityInterface
+    public function get(string $name): ?NodeInterface
     {
         return $this->getItemQueryBuilder()
             ->andWhere("{$this->alias}.name=:name")
@@ -35,7 +35,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
             ->getOneOrNullResult();
     }
 
-    public function getItemsQueryBuilder(NestedSetEntityInterface $nestedSetEntity): QueryBuilder
+    public function getItemsQueryBuilder(NodeInterface $nestedSetEntity): QueryBuilder
     {
         $queryBuilder = $this->createQueryBuilder($this->alias);
         $queryBuilder->andWhere("{$this->alias}.lft>:lft")
@@ -62,9 +62,9 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
     }
 
     public function create(
-        NestedSetEntityInterface $nestedSetEntity,
-        ?NestedSetEntityInterface $parent = null
-    ): NestedSetEntityInterface {
+        NodeInterface $nestedSetEntity,
+        ?NodeInterface $parent = null
+    ): NodeInterface {
         if (!empty($nestedSetEntity->getId())) {
             return $nestedSetEntity;
         }
@@ -129,7 +129,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         return $nestedSetEntity;
     }
 
-    public function up(NestedSetEntityInterface $node): void
+    public function up(NodeInterface $node): void
     {
         try {
             $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_BEFORE);
@@ -140,7 +140,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         }
     }
 
-    public function down(NestedSetEntityInterface $node): void
+    public function down(NodeInterface $node): void
     {
         try {
             $this->changeNodeKeys($node, NestedSetServiceRepositoryInterface::NODE_AFTER);
@@ -152,7 +152,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
     }
 
     public function delete(
-        NestedSetEntityInterface $nestedSetEntity,
+        NodeInterface $nestedSetEntity,
         ?string $tableName = null,
         ?Connection $connection = null
     ): void {
@@ -169,7 +169,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         $connection->executeQuery($sql);
     }
 
-    public function move(NestedSetEntityInterface $node, ?NestedSetEntityInterface $parent = null): void
+    public function move(NodeInterface $node, ?NodeInterface $parent = null): void
     {
         try {
             (new NestedSetsMoveNode($this->getEntityManager(), $this))
@@ -180,7 +180,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
     }
 
     public function getDeleteQuery (
-        NestedSetEntityInterface $nestedSetEntity,
+        NodeInterface $nestedSetEntity,
         string $tableName
     ): string {
 
@@ -199,7 +199,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         return $sql;
     }
 
-    private function getNearNode(NestedSetEntityInterface $node, int $direction): ?NestedSetEntityInterface
+    private function getNearNode(NodeInterface $node, int $direction): ?NodeInterface
     {
         $queryBuilder = $this->getItemQueryBuilder();
 
@@ -236,7 +236,7 @@ abstract class AbstractNestedSetServiceRepository extends ServiceEntityRepositor
         return $return;
     }
 
-    private function changeNodeKeys(NestedSetEntityInterface $node, int $direction): void
+    private function changeNodeKeys(NodeInterface $node, int $direction): void
     {
         try {
             $nearNode = $this->getNearNode($node, $direction);
