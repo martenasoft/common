@@ -1,7 +1,8 @@
+{% set searchUrlParamName = constant('MartenaSoft\\Common\\Library\\CommonValues::SEARCH_URL_PARAM_NAME') %}
 <form action="">
     <div>
         <div class="float-left">
-            <input type="text" name="w" value="{{ app.request.get('w') }}" class="form-control">
+            <input type="text" name="{{ searchUrlParamName }}" value="{{ app.request.get(searchUrlParamName) }}" class="form-control">
         </div>
         <div class="float-left ml-2">
             <button class="btn btn-info "><i class="cil-search"></i></button>

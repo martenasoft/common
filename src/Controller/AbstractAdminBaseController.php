@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 abstract class AbstractAdminBaseController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
+    private LoggerInterface $logger;
 
     public function __construct(EntityManagerInterface $entityManager, LoggerInterface $logger)
     {
@@ -28,6 +29,7 @@ abstract class AbstractAdminBaseController extends AbstractController
         string $returnUrl,
         array $params = []
     ): Response {
+
         $isShowSafeItem = ($entity instanceof SafeDeleteEntityInterface);
         $form = $this->createForm(ConfirmDeleteFormType::class, null, ['isShowSafeItem' => $isShowSafeItem]);
         return $this->render('@MartenaSoftCommon/common/confirm_delete.html.twig', [
