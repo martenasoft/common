@@ -9,6 +9,7 @@ use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
 use MartenaSoft\Common\Form\ConfirmDeleteFormType;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -16,11 +17,17 @@ abstract class AbstractAdminBaseController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
     private LoggerInterface $logger;
+    private EventDispatcherInterface $eventDispatcher;
 
-    public function __construct(EntityManagerInterface $entityManager, LoggerInterface $logger)
-    {
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        LoggerInterface $logger,
+        EventDispatcherInterface $eventDispatcher
+    ) {
         $this->entityManager = $entityManager;
         $this->logger = $logger;
+        $this->eventDispatcher = $eventDispatcher;
+        $this->initListener();
     }
 
     protected function confirmDelete(
@@ -40,6 +47,11 @@ abstract class AbstractAdminBaseController extends AbstractController
         ]);
     }
 
+    protected function initListener(): void
+    {
+
+    }
+
     protected function getEntityManager(): EntityManagerInterface
     {
         return $this->entityManager;
@@ -49,5 +61,9 @@ abstract class AbstractAdminBaseController extends AbstractController
     {
         return $this->logger;
     }
-}
 
+    protected function getEventDispatcher(): EventDispatcherInterface
+    {
+        return $this->eventDispatcher;
+    }
+}
