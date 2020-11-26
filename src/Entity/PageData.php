@@ -12,7 +12,7 @@ class PageData implements PageDataInterface
     private ?ConfigInterface $contentConfig = null;
     private bool $isDetail = false;
     private int $page = 0;
-    private string $path;
+    private string $path = '';
 
     public function getRootNode(): ?MenuInterface
     {

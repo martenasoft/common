@@ -2,10 +2,10 @@
 
 namespace MartenaSoft\Common\Event;
 
-use Symfony\Component\Form\Form;
+use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\Form\FormInterface;
 
-abstract class AbstractCommonFormEvent extends Form implements CommonFormEventInterface
+abstract class AbstractCommonFormEvent extends Event implements CommonFormEventInterface
 {
     private FormInterface $form;
 

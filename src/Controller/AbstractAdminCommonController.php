@@ -6,7 +6,9 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepositoryInterface;
 use Doctrine\ORM\Query;
 use Knp\Component\Pager\Pagination\PaginationInterface;
 use Knp\Component\Pager\PaginatorInterface;
+use MartenaSoft\Common\Event\CommonFormAfterDeleteEvent;
 use MartenaSoft\Common\Event\CommonFormAfterSaveEvent;
+use MartenaSoft\Common\Event\CommonFormBeforeDeleteEvent;
 use MartenaSoft\Common\Event\CommonFormBeforeSaveEvent;
 use MartenaSoft\Common\Exception\ElementNotFoundException;
 use MartenaSoft\Common\Library\CommonValues;
@@ -94,6 +96,10 @@ abstract class AbstractAdminCommonController extends AbstractAdminBaseController
 
             try {
                 $this->getEntityManager()->beginTransaction();
+                $this->getEventDispatcher()->dispatch(
+                    new CommonFormBeforeDeleteEvent($entity),
+                    CommonFormBeforeDeleteEvent::getEventName()
+                );
 
                 if ($entity instanceof MenuInterface) {
                     $this
@@ -103,7 +109,15 @@ abstract class AbstractAdminCommonController extends AbstractAdminBaseController
                             DeleteMenuEvent::getEventName()
                     );
                 }
+
+
+
             //    $this->getMenuRepository()->delete($entity, $isSafeDelete);
+
+                $this->getEventDispatcher()->dispatch(
+                    new CommonFormAfterDeleteEvent($entity),
+                    CommonFormAfterDeleteEvent::getEventName()
+                );
 
                 $this->getEntityManager()->commit();
                 $this->addFlash(
