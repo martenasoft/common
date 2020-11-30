@@ -66,6 +66,7 @@ class PageData implements PageDataInterface
     public function setPath(string $path): self
     {
         $this->path = $path;
+        return $this;
     }
 
     public function getContentConfig(): ?ConfigInterface
