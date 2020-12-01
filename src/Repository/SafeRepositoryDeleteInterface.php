@@ -2,7 +2,7 @@
 
 namespace MartenaSoft\Common\Repository;
 
-use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
+use MartenaSoft\Trash\Entity\TrashEntityInterface;
 
 interface SafeRepositoryDeleteInterface
 {
@@ -10,7 +10,7 @@ interface SafeRepositoryDeleteInterface
     public const SHOW_ALL = 2;
     public const SHOW_DELETED = 3;
 
-    public function safeDelete(SafeDeleteEntityInterface $entity): void;
+    public function safeDelete(TrashEntityInterface $entity): void;
     public function getHowToShowSafeDeletedItems(): int;
     public function setHowToShowSafeDeletedItems(int $showStatus): void;
 }

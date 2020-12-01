@@ -3,10 +3,9 @@
 namespace MartenaSoft\Common\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
-use MartenaSoft\Common\Entity\BaseEntityInterface;
-use MartenaSoft\Common\Entity\CommonEntityInterface;
-use MartenaSoft\Common\Entity\SafeDeleteEntityInterface;
 use MartenaSoft\Common\Form\ConfirmDeleteFormType;
+use MartenaSoft\Trash\Entity\TrashEntityInterface;
+use MartenaSoft\Common\Entity\CommonEntityInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -37,7 +36,7 @@ abstract class AbstractAdminBaseController extends AbstractController
         array $params = []
     ): Response {
 
-        $isShowSafeItem = ($entity instanceof SafeDeleteEntityInterface);
+        $isShowSafeItem =  ($entity instanceof TrashEntityInterface);
         $form = $this->createForm(ConfirmDeleteFormType::class, null, ['isShowSafeItem' => $isShowSafeItem]);
         return $this->render('@MartenaSoftCommon/common/confirm_delete.html.twig', [
             'form' => $form->createView(),

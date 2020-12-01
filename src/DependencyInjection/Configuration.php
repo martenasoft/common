@@ -12,17 +12,6 @@ class Configuration implements ConfigurationInterface
     {
         $treeBuilder = new TreeBuilder('martena_common');
 
-        /*$treeBuilder->getRootNode()
-            ->children()
-            ->arrayNode('twitter')
-            ->children()
-            ->integerNode('client_id')->end()
-            ->scalarNode('client_secret')->end()
-            ->end()
-            ->end() // twitter
-            ->end()
-        ;*/
-
         return $treeBuilder;
     }
 }
