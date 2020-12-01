@@ -2,7 +2,6 @@
 
 namespace MartenaSoft\Common\Event;
 
-
 class CommonFormBeforeDeleteEvent extends AbstractCommonDeleteItemEvent
 {
     public static function getEventName(): string

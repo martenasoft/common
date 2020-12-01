@@ -12,17 +12,24 @@
                 Total: {{ pagination.getTotalItemCount }}
             </div>
             <div class="col-6">
+                {% if routeIndex is not empty %}
                 <div class="float-right">
                     {% include '@MartenaSoftCommon/common/search_form.html.twig' with
-                        {'searh_from_return_url' : path('menu_admin_index')} %}
+                        {'searh_from_return_url' : routeIndex } %}
                 </div>
+                {% endif %}
             </div>
             <div class="col-3">
                 <div class="float-right">
+                    {% if createButtonUrl is not empty %}
                     <a class="btn btn-success" href="{{ createButtonUrl }}">
                         <i class="cil-plus"></i>
                     </a>
-                    <a class="btn btn-secondary" href="{{ configButtonUrl }}">...</a>
+                    {% endif %}
+
+                    {% if configButtonUrl is not empty %}
+                        <a class="btn btn-secondary" href="{{ configButtonUrl }}">...</a>
+                    {% endif %}
                 </div>
             </div>
         </div>

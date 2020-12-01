@@ -4,7 +4,7 @@ namespace MartenaSoft\Common\Entity;
 
 class ConfirmDeleteEntity
 {
-    private bool $isSafeDelete = false;
+    private bool $isSafeDelete = true;
 
     public function isSafeDelete(): ?bool
     {

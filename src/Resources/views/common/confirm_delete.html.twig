@@ -1,21 +1,30 @@
 {% extends 'base-admin.html.twig' %}
 
+{% set title = options.title is defined ?  options.title : 'Delete item' %}
+
 {% block title %}
-    Delete Item
+    {{ title }}
 {% endblock %}
 
 {% block h1 %}
-    Delete Item
+    {{ title }}
 {% endblock %}
 
 {% block body %}
     <div class="example-wrapper">
         <div class="alert alert-warning">
+            {% if options.title is defined %}
+                <h3>{{ options.title }}</h3>
+            {% endif %}
             {{ form_start(form) }}
             {{ form_widget(form) }}
             <hr>
             <a href="{{ path(returnUrl, params) }}" >Cancel</a>
-            <button type="submit" class="btn btn-danger" onclick="">Delete</button>
+            {% if options.submitButton is defined %}
+                {{ options.submitButton|raw }}
+            {% else %}
+                <button type="submit" class="btn btn-danger" onclick="">Delete</button>
+            {% endif %}
             {{ form_end(form) }}
         </div>
     </div>

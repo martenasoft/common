@@ -3,6 +3,9 @@
 namespace MartenaSoft\Common\Controller;
 
 use Doctrine\ORM\EntityManagerInterface;
+use MartenaSoft\Common\Entity\ConfirmDeleteEntity;
+use MartenaSoft\Common\Event\CommonConfirmAfterSubmit;
+use MartenaSoft\Common\Event\CommonFormEventInterface;
 use MartenaSoft\Common\Form\ConfirmDeleteFormType;
 use MartenaSoft\Trash\Entity\TrashEntityInterface;
 use MartenaSoft\Common\Entity\CommonEntityInterface;
@@ -33,16 +36,34 @@ abstract class AbstractAdminBaseController extends AbstractController
         Request $request,
         CommonEntityInterface $entity,
         string $returnUrl,
-        array $params = []
+        array $params = [],
+        array $options = []
     ): Response {
 
-        $isShowSafeItem =  ($entity instanceof TrashEntityInterface);
-        $form = $this->createForm(ConfirmDeleteFormType::class, null, ['isShowSafeItem' => $isShowSafeItem]);
+        $isTrash =  (
+            interface_exists(TrashEntityInterface::class) &&
+            $entity instanceof TrashEntityInterface
+        );
+
+        $form = $this->createForm(ConfirmDeleteFormType::class, new ConfirmDeleteEntity(), [
+            'isShowSafeItem' => $isTrash
+        ]);
+
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $event = new CommonConfirmAfterSubmitEvent($form);
+            if ($event instanceof CommonFormEventInterface) {
+                $this->getEventDispatcher()->dispatch($event, CommonFormEventInterface::getEventName());
+            }
+        }
+
         return $this->render('@MartenaSoftCommon/common/confirm_delete.html.twig', [
             'form' => $form->createView(),
-            'isShowSafeItem' => $isShowSafeItem,
+            'isTrash' => $isTrash,
             'returnUrl' => $returnUrl,
-            'params' => $params
+            'params' => $params,
+            'options' => $options
         ]);
     }
 

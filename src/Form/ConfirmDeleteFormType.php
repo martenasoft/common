@@ -14,6 +14,7 @@ class ConfirmDeleteFormType extends AbstractType
     {
         if (!empty($options['isShowSafeItem'])) {
             $builder->add('isSafeDelete', CheckboxType::class, [
+                'label' => 'Move to trash',
                 'required' => false
             ]);
         }
