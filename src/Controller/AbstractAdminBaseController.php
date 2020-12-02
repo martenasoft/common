@@ -5,6 +5,8 @@ namespace MartenaSoft\Common\Controller;
 use Doctrine\ORM\EntityManagerInterface;
 use MartenaSoft\Common\Entity\ConfirmDeleteEntity;
 use MartenaSoft\Common\Event\CommonConfirmAfterSubmit;
+use MartenaSoft\Common\Event\CommonConfirmAfterSubmitEvent;
+use MartenaSoft\Common\Event\CommonEventResponseInterface;
 use MartenaSoft\Common\Event\CommonFormEventInterface;
 use MartenaSoft\Common\Form\ConfirmDeleteFormType;
 use MartenaSoft\Trash\Entity\TrashEntityInterface;
@@ -51,10 +53,18 @@ abstract class AbstractAdminBaseController extends AbstractController
 
         $form->handleRequest($request);
 
+
+
         if ($form->isSubmitted() && $form->isValid()) {
-            $event = new CommonConfirmAfterSubmitEvent($form);
+            $event = new CommonConfirmAfterSubmitEvent($form, $entity);
+
             if ($event instanceof CommonFormEventInterface) {
-                $this->getEventDispatcher()->dispatch($event, CommonFormEventInterface::getEventName());
+                $this->getEventDispatcher()->dispatch($event, CommonConfirmAfterSubmitEvent::getEventName());
+            }
+
+            if ($event instanceof CommonEventResponseInterface &&
+                ($response = $event->getResponse()) instanceof Response) {
+                return $response;
             }
         }
 

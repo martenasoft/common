@@ -8,4 +8,5 @@ class CommonFormBeforeDeleteEvent extends AbstractCommonDeleteItemEvent
     {
         return 'common.form.before.delete';
     }
+
 }
