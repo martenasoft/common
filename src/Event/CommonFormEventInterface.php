@@ -4,7 +4,7 @@ namespace MartenaSoft\Common\Event;
 
 use Symfony\Component\Form\FormInterface;
 
-interface CommonFormEventInterface extends CommonEventInterface
+interface CommonFormEventInterface
 {
     public function getForm(): FormInterface;
 }
