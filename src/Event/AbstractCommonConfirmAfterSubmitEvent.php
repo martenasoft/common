@@ -7,13 +7,12 @@ use MartenaSoft\Common\Event\InitEventsTraits\InitEventResponse;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Contracts\EventDispatcher\Event;
 
-abstract class AbstractCommonFormEvent extends Event implements
+abstract class AbstractCommonConfirmAfterSubmitEvent extends Event implements
     CommonFormEventInterface,
-    CommonEventResponseInterface,
-    CommonFormEventEntityInterface
+    CommonFormEventEntityInterface,
+    CommonEventResponseInterface
 {
     use InitEventResponse;
-
     private FormInterface $form;
     private CommonEntityInterface $entity;
 
@@ -32,4 +31,5 @@ abstract class AbstractCommonFormEvent extends Event implements
     {
         return $this->entity;
     }
+
 }

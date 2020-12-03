@@ -4,7 +4,7 @@ namespace MartenaSoft\Common\Event;
 
 use MartenaSoft\Common\Entity\CommonEntityInterface;
 use MartenaSoft\Trash\Entity\InitTrashMethodsTrait;
-use Symfony\Component\HttpFoundation\Response;
+use MartenaSoft\Common\Event\InitEventsTraits\InitEventResponse;
 use Symfony\Contracts\EventDispatcher\Event;
 
 abstract class AbstractCommonDeleteItemEvent extends Event implements
@@ -12,11 +12,14 @@ abstract class AbstractCommonDeleteItemEvent extends Event implements
     CommonEventInterface,
     CommonEventResponseInterface
 {
-    use InitTrashMethodsTrait;
+    use
+        InitTrashMethodsTrait,
+        InitEventResponse
+        ;
 
     private CommonEntityInterface $entity;
     private bool $isSafeDelete = false;
-    private ?Response $response = null;
+
 
     public function __construct(CommonEntityInterface $entity, bool $isSafeDelete)
     {
@@ -28,19 +31,4 @@ abstract class AbstractCommonDeleteItemEvent extends Event implements
         return $this->entity;
     }
 
-    public function getResponse(): ?Response
-    {
-        return $this->response;
-    }
-
-    public function setResponse(?Response $response): self
-    {
-        $this->response = $response;
-        return $this;
-    }
-
-    public function isSafeDelete(): bool
-    {
-        return $this->isSafeDelete();
-    }
 }

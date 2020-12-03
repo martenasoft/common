@@ -53,8 +53,6 @@ abstract class AbstractAdminBaseController extends AbstractController
 
         $form->handleRequest($request);
 
-
-
         if ($form->isSubmitted() && $form->isValid()) {
             $event = new CommonConfirmAfterSubmitEvent($form, $entity);
 
