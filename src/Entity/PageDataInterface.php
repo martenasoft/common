@@ -11,10 +11,10 @@ interface PageDataInterface
 
     public function setRootNode(?MenuInterface $rootNode): self;
 
-    public function getActiveMenu(): ?MenuInterface;
+    public function getActiveData(): ?CommonEntityInterface;
 
-    public function setActiveMenu(?MenuInterface $activeMenu): self;
-
+    public function setActiveData(?CommonEntityInterface $activeData): self;
+    
     public function isDetail(): bool;
 
     public function setIsDetail(bool $isDetail): self;

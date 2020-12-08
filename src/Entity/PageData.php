@@ -8,7 +8,7 @@ use MartenaSoft\Menu\Entity\MenuInterface;
 class PageData implements PageDataInterface
 {
     private ?MenuInterface $rootNode = null;
-    private ?MenuInterface $activeMenu = null;
+    private ?CommonEntityInterface $activeData = null;
     private ?ConfigInterface $contentConfig = null;
     private bool $isDetail = false;
     private int $page = 0;
@@ -25,14 +25,14 @@ class PageData implements PageDataInterface
         return $this;
     }
 
-    public function getActiveMenu(): ?MenuInterface
+    public function getActiveData(): ?CommonEntityInterface
     {
-        return $this->activeMenu;
+        return $this->activeData;
     }
 
-    public function setActiveMenu(?MenuInterface $activeMenu): self
+    public function setActiveData(?CommonEntityInterface $activeData): self
     {
-        $this->activeMenu = $activeMenu;
+        $this->activeData = $activeData;
         return $this;
     }
 

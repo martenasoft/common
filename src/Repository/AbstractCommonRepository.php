@@ -10,9 +10,9 @@ abstract class AbstractCommonRepository extends ServiceEntityRepository
 {
     abstract public static function getAlias(): string;
 
-    public function getQueryBuilder(): QueryBuilder
+    public function getQueryBuilder(?QueryBuilder $queryBuilder = null): QueryBuilder
     {
-        return $this->createQueryBuilder(static::getAlias());
+        return $queryBuilder !== null ? $queryBuilder : $this->createQueryBuilder(static::getAlias());
     }
 
     protected function getStatus(): int
