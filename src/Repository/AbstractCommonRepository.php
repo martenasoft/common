@@ -15,8 +15,8 @@ abstract class AbstractCommonRepository extends ServiceEntityRepository
         return $queryBuilder !== null ? $queryBuilder : $this->createQueryBuilder(static::getAlias());
     }
 
-    protected function getStatus(): int
+   /* protected function getStatus(): int
     {
         return CommonStatusInterface::STATUS_ACTIVE;
-    }
+    }*/
 }
