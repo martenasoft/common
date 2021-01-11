@@ -9,6 +9,7 @@ use MartenaSoft\Common\Event\CommonConfirmAfterSubmitEvent;
 use MartenaSoft\Common\Event\CommonEventResponseInterface;
 use MartenaSoft\Common\Event\CommonFormEventInterface;
 use MartenaSoft\Common\Form\ConfirmDeleteFormType;
+use MartenaSoft\Common\Library\CommonValues;
 use MartenaSoft\Trash\Entity\TrashEntityInterface;
 use MartenaSoft\Common\Entity\CommonEntityInterface;
 use Psr\Log\LoggerInterface;
@@ -93,5 +94,15 @@ abstract class AbstractAdminBaseController extends AbstractController
     protected function getEventDispatcher(): EventDispatcherInterface
     {
         return $this->eventDispatcher;
+    }
+
+    protected function successMessage(string $message): void
+    {
+        $this->addFlash(CommonValues::FLASH_SUCCESS_TYPE, $message);
+    }
+
+    protected function errorMessage(string $message): void
+    {
+        $this->addFlash(CommonValues::FLASH_ERROR_TYPE, $message);
     }
 }
